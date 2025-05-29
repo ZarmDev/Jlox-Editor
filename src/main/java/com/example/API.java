@@ -8,7 +8,7 @@ import org.json.JSONObject;
 
 public class API {
 	// For now, we can leave it in the client. TODO
-	private final static String apiKey = "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";
+//	private final static String apiKey = "";
 	
 	public static String askAI(String url, String model, String role, String content) {
 //        if (apiKey == null) {
@@ -36,7 +36,7 @@ public class API {
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", type);
-            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+//            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
 
             // Build the JSON body using JSONObject and JSONArray
             JSONObject requestBody = new JSONObject();
@@ -80,12 +80,13 @@ public class API {
                 // string is empty or not because if nothing is given then it will return an
                 // Exception of NoSuchElementException
                 String response = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
+                System.out.println(response);
                 // Much faster than using a JSON object and easier to implement
-                String textResult = (response.substring(response.indexOf("content\":\"") + 11,
-                        response.lastIndexOf("\"refusal\"") - 2));
+                String textResult = (response.substring(response.indexOf("content\":\"") + 10,
+                        response.lastIndexOf("\"role\"") - 2));
                 // Replace escaped new line characters so it actually renders new lines correctly instead of showing \n on the screen and not a new line
                 conn.disconnect();
-                return (textResult.replace("\\n", "\n"));
+                return (textResult.replace("\\n", "\n").replace("\\\"", "\""));
             }
         } catch (Exception e) {
             System.out.println("Failed to connect to the API");

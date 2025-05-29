@@ -1,8 +1,10 @@
 package com.example;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -63,9 +65,10 @@ public class App extends Application {
     public void alertUser(String text) {
         alert.setText(text);
         
-        GUIutils.fadeInOutAnimation(alert);
+        GUIutils.fadeInOutAnimation(alert, 1);
     }
 
+    // TODO: Document this
     public void saveToFile() {
         if (currentFilePath != null) {
             try (FileWriter fw = new FileWriter(currentFilePath)) {
@@ -75,64 +78,115 @@ public class App extends Application {
                 e1.printStackTrace();
             }
         } else {
-            // Create a custom dialog
-            Dialog<String> dialog = new Dialog<>();
-            dialog.setTitle("Alert");
-
-            // Creating a Text object
-            Text tip = new Text();
-
-            // Setting the text to be added
-            tip.setText("Please enter the file name here:");
-
-            // Add custom buttons
+            Text tip = new Text("Please enter the file name here:");
             Button chooseFolderBtn = new Button("Choose a folder to place the file");
-
-            // Add custom content
             TextField inputField = new TextField();
-            HBox content = new HBox(10, tip);
-            content.getChildren().add(inputField);
-            content.getChildren().add(chooseFolderBtn);
-            dialog.getDialogPane().setContent(content);
-
-            ButtonType customButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
-            dialog.getDialogPane().getButtonTypes().addAll(customButtonType, ButtonType.CANCEL);
-
-            dialog.setResultConverter(dialogButton -> {
-                if (dialogButton == customButtonType) {
-                    return inputField.getText();
-                }
-                return null;
-            });
+            final File[] selectedDir = new File[1];
+            HBox content = new HBox(10, tip, inputField, chooseFolderBtn);
 
             chooseFolderBtn.setOnAction(e -> {
                 DirectoryChooser directoryChooser = new DirectoryChooser();
                 directoryChooser.setTitle("Select Folder");
-                File selectedDirectory = directoryChooser.showDialog(primaryStage);
-
-                if (selectedDirectory != null) {
-                    String filePath = selectedDirectory.getAbsolutePath() + "/" + inputField.getText();
-                    File file = new File(filePath);
-                    if (!file.exists()) {
-                        // File does not exist, safe to create/write
-                        try (FileWriter fw = new FileWriter(file)) {
-                            fw.write(textArea.getText());
-                            alertUser("File saved!");
-                        } catch (IOException err) {
-                            err.printStackTrace();
-                        }
-                    } else {
-                        alertUser("File already exists!");
-                        // Optionally, prompt the user or handle as needed
-                    }
+                File dir = directoryChooser.showDialog(primaryStage);
+                if (dir != null) {
+                    selectedDir[0] = dir;
                 }
             });
 
-            Optional<String> result = dialog.showAndWait();
-            result.ifPresent(input -> {
-                System.out.println("User input: " + input);
+            // Use createDialog and pass a result extractor that returns the full file path
+            String filePath = GUIutils.createDialog(content, box -> {
+                String fileName = "";
+                File dir = selectedDir[0];
+                for (javafx.scene.Node node : box.getChildren()) {
+                    if (node instanceof TextField) {
+                        fileName = ((TextField) node).getText();
+                    }
+                }
+                if (dir != null && !fileName.isEmpty()) {
+                    return dir.getAbsolutePath() + File.separator + fileName;
+                }
+                return null;
             });
+
+            if (filePath != null) {
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    try (FileWriter fw = new FileWriter(file)) {
+                        fw.write(textArea.getText());
+                        alertUser("File saved!");
+                    } catch (IOException err) {
+                        err.printStackTrace();
+                    }
+                } else {
+                    alertUser("File already exists!");
+                }
+            } else {
+                alertUser("Please select a folder and enter a file name.");
+            }
         }
+    }
+
+    public Void callAI() throws Exception {
+        	// "https://openrouter.ai/api/v1/chat/completions"
+        	String url = "https://ai.hackclub.com/chat/completions";
+        	// "meta-llama/llama-3.3-8b-instruct:free"
+        	String model = "llama-3.3-70b-versatile";
+            String callResult = API.askAI(url, model,
+                    "Find the error in the user's code", textArea.getText());
+            if (callResult == null) {
+            	alertUser("No API Key provided!");
+            } else if (callResult.equals("")) {
+            	alertUser("Failed to connect to the chatGPT API");
+            } else {
+            	updateMarkdown(callResult);
+            }
+            return null;
+//          @Override
+//          protected Void call() throws Exception {
+//          	String callResult = API.askAI("https://openrouter.ai/api/v1/chat/completions", "meta-llama/llama-3.3-8b-instruct:free",
+//                      "Find the error in the user's code", textArea.getText());
+//              if (callResult == null) {
+//              	alertUser("No API Key provided!");
+//              } else if (callResult.equals("")) {
+//              	alertUser("Failed to connect to the chatGPT API");
+//              } else {
+//              	updateMarkdown(callResult);
+//              }
+//              return null;
+//          }
+    }
+    
+    public void runCode() {
+    	if (currentFilePath == null) {
+    		alertUser("Please save the file first!");
+    		return;
+    	}
+    	System.out.println(currentFilePath);
+    	try {
+    	// TODO: May be possible to optimize and reuse getRuntime?
+    	Process compile = Runtime.getRuntime().exec("javac " + currentFilePath);
+    	BufferedReader reader = new BufferedReader(new InputStreamReader(compile.getInputStream()));
+    	String line;
+    	while ((line = reader.readLine()) != null) {
+    		System.out.println(line);
+    		updateMarkdown(line);
+//    		GUIutils.fadeInOutAnimation(aiResults, 0.2);
+    	}
+    	int exitCode = compile.waitFor();
+    	if (exitCode == 0) {
+        	Process run = Runtime.getRuntime().exec("java " + currentFilePath);
+        	BufferedReader reader2 = new BufferedReader(new InputStreamReader(run.getInputStream()));
+        	while ((line = reader2.readLine()) != null) {
+        		System.out.println(line);
+        		updateMarkdown("Result: \\n" + line);
+        	}
+    	} else {
+    		System.out.println("Exited with error code : " + exitCode);
+        	updateMarkdown(line + "\nExited with error code : " + exitCode);
+    	}
+    	} catch (Exception e) {
+    		alertUser("Failed to run code.");
+    	}
     }
     
     public void initializeToolbarButtons() {
@@ -182,17 +236,9 @@ public class App extends Application {
             // Run askAI in a background thread to avoid freezing the UI (thread code from
             // online)
             javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
-                @Override
+            	@Override
                 protected Void call() throws Exception {
-                    String callResult = API.askAI("https://openrouter.ai/api/v1/chat/completions", "meta-llama/llama-3.3-8b-instruct:free",
-                            "Find the error in the user's code", textArea.getText());
-                    if (callResult == null) {
-                    	alertUser("No API Key provided!");
-                    } else if (callResult.equals("")) {
-                    	alertUser("Failed to connect to the chatGPT API");
-                    } else {
-                    	updateMarkdown(callResult);
-                    }
+                    callAI();
                     return null;
                 }
             };
@@ -207,7 +253,7 @@ public class App extends Application {
             javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
                 @Override
                 protected Void call() throws Exception {
-                    // run code
+                	runCode();
                 	return null;
                 }
             };
@@ -238,17 +284,19 @@ public class App extends Application {
             	// Run askAI in a background thread to avoid freezing the UI (thread code from
                 // online)
                 javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
-                    @Override
+                	@Override
                     protected Void call() throws Exception {
-                    	String callResult = API.askAI("https://openrouter.ai/api/v1/chat/completions", "meta-llama/llama-3.3-8b-instruct:free",
-                                "Find the error in the user's code", textArea.getText());
-                        if (callResult == null) {
-                        	alertUser("No API Key provided!");
-                        } else if (callResult.equals("")) {
-                        	alertUser("Failed to connect to the chatGPT API");
-                        } else {
-                        	updateMarkdown(callResult);
-                        }
+                        callAI();
+                        return null;
+                    }
+                };
+                new Thread(task).start();
+                event.consume(); // Prevent default behavior
+            } else if (event.getCode() == javafx.scene.input.KeyCode.F5) {
+                javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
+                	@Override
+                    protected Void call() throws Exception {
+                        runCode();
                         return null;
                     }
                 };
