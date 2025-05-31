@@ -8,6 +8,8 @@ import java.io.InputStreamReader;
 import java.util.Optional;
 import java.util.Scanner;
 
+import org.fxmisc.richtext.CodeArea;
+
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Rectangle2D;
@@ -34,7 +36,7 @@ import javafx.stage.Stage;
 import one.jpro.platform.mdfx.MarkdownView;
 
 public class App extends Application {
-    Rectangle2D screenBounds = Screen.getPrimary().getBounds();
+    private final Rectangle2D screenBounds = Screen.getPrimary().getBounds();
     private final double width = screenBounds.getWidth();
     private final double height = screenBounds.getHeight() - 100;
     private StackPane root = new StackPane();
@@ -50,13 +52,9 @@ public class App extends Application {
     private TextInputDialog userPrompt = new TextInputDialog();
     private Stage primaryStage;
     private Text alert = new Text();
-    // private Text aiResults = new Text();
-    MarkdownView aiResults = new MarkdownView();
-    ScrollPane scrollPane = new ScrollPane();
-
-    public App() {
-        // aiResults.setWrappingWidth(width - 100);
-    }
+    private MarkdownView aiResults = new MarkdownView();
+    private ScrollPane scrollPane = new ScrollPane();
+//    private CodeArea textArea = new CodeArea();
 
     public static void main(String[] args) {
         launch(args);
@@ -156,6 +154,16 @@ public class App extends Application {
 //          }
     }
     
+    private String readStream(java.io.InputStream stream) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+        StringBuilder output = new StringBuilder();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            output.append(line).append("\n\n");
+        }
+        return output.toString();
+    }
+    
     public void runCode() {
     	if (currentFilePath == null) {
     		alertUser("Please save the file first!");
@@ -163,27 +171,35 @@ public class App extends Application {
     	}
     	System.out.println(currentFilePath);
     	try {
-    	// TODO: May be possible to optimize and reuse getRuntime?
-    	Process compile = Runtime.getRuntime().exec("javac " + currentFilePath);
-    	BufferedReader reader = new BufferedReader(new InputStreamReader(compile.getInputStream()));
-    	String line;
-    	while ((line = reader.readLine()) != null) {
-    		System.out.println(line);
-    		updateMarkdown(line);
-//    		GUIutils.fadeInOutAnimation(aiResults, 0.2);
-    	}
-    	int exitCode = compile.waitFor();
-    	if (exitCode == 0) {
-        	Process run = Runtime.getRuntime().exec("java " + currentFilePath);
-        	BufferedReader reader2 = new BufferedReader(new InputStreamReader(run.getInputStream()));
-        	while ((line = reader2.readLine()) != null) {
-        		System.out.println(line);
-        		updateMarkdown("Result: \\n" + line);
-        	}
-    	} else {
-    		System.out.println("Exited with error code : " + exitCode);
-        	updateMarkdown(line + "\nExited with error code : " + exitCode);
-    	}
+    		updateMarkdown("Compiling...");
+    		saveToFile();
+    		// Taken from https://www.geeksforgeeks.org/measure-time-taken-function-java/
+    		long startTime = System.nanoTime();
+            Process compile = Runtime.getRuntime().exec("javac " + currentFilePath);
+            String compileErrors = readStream(compile.getErrorStream());
+            int compileExit = compile.waitFor();
+
+            if (compileExit != 0) {
+                updateMarkdown("Compilation failed:\n\n" + compileErrors);
+                return;
+            }
+
+            // Remove .java extension for running
+//            String className = new File(currentFilePath).getName().replaceFirst("[.][^.]+$", "");
+            Process run = Runtime.getRuntime().exec("java " + currentFilePath);
+            String runOutput = readStream(run.getInputStream());
+            System.out.println(runOutput);
+            String runErrors = readStream(run.getErrorStream());
+            int runExit = run.waitFor();
+
+            long endTime = System.nanoTime();
+            long executionTime = (endTime - startTime) / 1000000;
+            
+            if (runExit != 0) {
+                updateMarkdown("Runtime error (executed in " + executionTime + " ms):\n\n" + runErrors);
+            } else {
+                updateMarkdown("Result (executed in " + executionTime + " ms):\n\n" + runOutput);
+            }
     	} catch (Exception e) {
     		alertUser("Failed to run code.");
     	}
@@ -332,6 +348,8 @@ public class App extends Application {
     	    public void run() {
     	    	mainScreen.getChildren().remove(scrollPane); // Remove old MarkdownView
     	        aiResults = new MarkdownView(newMarkdown); // Create new instance
+    	        // Add padding to make the text look better
+    	        aiResults.setStyle("-fx-padding: 16;");
     	        scrollPane = new ScrollPane(aiResults);
     	        mainScreen.getChildren().add(scrollPane); // Add new MarkdownView at the top
     	    }
@@ -339,20 +357,19 @@ public class App extends Application {
     }
     
     public void initialization() {
-        // Set the title of the window
+        // ## SET DEFAULT VALUES ##
         primaryStage.setTitle("Jlox Code Editor");
         userPrompt.setTitle("Input Required");
+        
         scrollPane.setFitToWidth(true); // Makes sure it fits the width
         scrollPane.setPannable(true); // Allows panning with the mouse
         textArea.setPrefHeight(500); // Set preferred height in pixels
         textArea.setMinHeight(400); // Minimum height
-        
-        // ## FILTER CODE ##
+
         filterField.setVisible(false);
         filterField.setManaged(false);
-
-        // ## SET DEFAULT VALUES ##
         filterField.setPromptText("Type to filter code...");
+        
         textArea.setText("public class Main {\r\n" + //
                 "\tpublic static void main(String[] args) {\r\n" + //
                 "\r\n" + //
