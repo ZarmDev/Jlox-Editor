@@ -43,7 +43,6 @@ public class App extends Application {
     private VBox mainScreen = new VBox(10);
     private String currentFilePath = null;
     private FileWriter fw;
-    private TextArea textArea = new TextArea();
     // TODO: Why is filename.txt here?
     private File readTextArea = new File("filename.txt");
     private FileChooser fileChooser = new FileChooser();
@@ -54,7 +53,7 @@ public class App extends Application {
     private Text alert = new Text();
     private MarkdownView aiResults = new MarkdownView();
     private ScrollPane scrollPane = new ScrollPane();
-//    private CodeArea textArea = new CodeArea();
+    private CodeEditor textArea = new CodeEditor();
 
     public static void main(String[] args) {
         launch(args);
@@ -225,7 +224,7 @@ public class App extends Application {
                         String data = myReader.nextLine();
                         fileContent.append(data).append("\n");
                     }
-                    textArea.setText(fileContent.toString());
+                    textArea.replaceText(fileContent.toString());
                     myReader.close();
                 } catch (IOException e1) {
                     e1.printStackTrace();
@@ -321,24 +320,24 @@ public class App extends Application {
             }
         });
         // Add event listener for filterField
-        filterField.textProperty().addListener((obs, oldVal, newVal) -> {
-            String content = textArea.getText();
-            // If the textArea is empty then don't select anything (deselect in case any
-            // text is already selected)
-            if (newVal.isEmpty()) {
-                textArea.deselect();
-                return;
-            }
-            // Otherwise, look for the value in the filterField
-            int index = content.indexOf(newVal);
-            // If the index exists, then use selectRange to select it
-            if (index >= 0) {
-                textArea.selectRange(index, index + newVal.length());
-            } else {
-                // Otherwise, ensure nothing is selected
-                textArea.deselect();
-            }
-        });
+//        filterField.textProperty().addListener((obs, oldVal, newVal) -> {
+//            String content = textArea.getText();
+//            // If the textArea is empty then don't select anything (deselect in case any
+//            // text is already selected)
+//            if (newVal.isEmpty()) {
+//                textArea.deselect();
+//                return;
+//            }
+//            // Otherwise, look for the value in the filterField
+//            int index = content.indexOf(newVal);
+//            // If the index exists, then use selectRange to select it
+//            if (index >= 0) {
+//                textArea.selectRange(index, index + newVal.length());
+//            } else {
+//                // Otherwise, ensure nothing is selected
+//                textArea.deselect();
+//            }
+//        });
     }
 
     private void updateMarkdown(String newMarkdown) {
@@ -370,18 +369,24 @@ public class App extends Application {
         filterField.setManaged(false);
         filterField.setPromptText("Type to filter code...");
         
-        textArea.setText("public class Main {\r\n" + //
+        textArea.replaceText("public class Main {\r\n" + //
                 "\tpublic static void main(String[] args) {\r\n" + //
                 "\r\n" + //
                 "\t}\r\n" + //
                 "}\r\n" + //
                 "");
         
+        textArea.setPrefHeight(500);
+        textArea.setMinHeight(400);
+        textArea.setPrefWidth(width); // Optionally set width
+
+        
         // ## ADD ALL CHILDREN TO THE SCENE ##
         mainScreen.getChildren().add(alert);
         
         // ## INITALIZE TOOLBAR ##
         initializeToolbarButtons();
+        
         mainScreen.getChildren().add(filterField);
         mainScreen.getChildren().add(textArea);
         mainScreen.getChildren().add(aiResults);
@@ -396,7 +401,10 @@ public class App extends Application {
 
         // Add the mainScreen and set a new scene
         root.getChildren().add(mainScreen);
-        primaryStage.setScene(new Scene(root, width, height));
+        Scene scene = new Scene(root, width, height);
+        // ## ADD CSS ##
+        scene.getStylesheets().add(CodeEditor.class.getResource("java-keywords.css").toExternalForm());
+        primaryStage.setScene(scene);
 
         // ## EVENT HANDLERS ##
         initalizeEventHandlers();
