@@ -34,8 +34,9 @@ import org.reactfx.Subscription;
 // Extend as a Region because it's an area
 public class CodeEditor extends Region {
 	private final VirtualizedScrollPane<CodeArea> vsPane;
-	private final CodeArea codeArea;
+	public final CodeArea codeArea;
 
+	// keywords to be highlighted
     private static final String[] KEYWORDS = new String[] {
             "abstract", "assert", "boolean", "break", "byte",
             "case", "catch", "char", "class", "const",
@@ -93,33 +94,17 @@ public class CodeEditor extends Region {
     
     public CodeEditor() {
     	codeArea = new CodeArea();
+    	// Use a scroll pane to make the codeArea scrollable and have styles like padding
     	vsPane = new VirtualizedScrollPane<>(codeArea);
     	// Because this is a node you can call getChildren on the Region and add the scroll pane to contain the code editor
     	getChildren().add(vsPane);
     	
         // add line numbers to the left of area
         codeArea.setParagraphGraphicFactory(LineNumberFactory.get(codeArea));
+        // add feature to fold classes/functions
+        codeArea.setParagraphGraphicFactory(new FoldingGraphicFactory(codeArea));
+        // set the context menu (menu appearing on right clicking code) to the custom class below
         codeArea.setContextMenu( new DefaultContextMenu() );
-/*
-        // recompute the syntax highlighting for all text, 500 ms after user stops editing area
-        // Note that this shows how it can be done but is not recommended for production with
-        // large files as it does a full scan of ALL the text every time there is a change !
-        Subscription cleanupWhenNoLongerNeedIt = codeArea
-
-                // plain changes = ignore style changes that are emitted when syntax highlighting is reapplied
-                // multi plain changes = save computation by not rerunning the code multiple times
-                //   when making multiple changes (e.g. renaming a method at multiple parts in file)
-                .multiPlainChanges()
-
-                // do not emit an event until 500 ms have passed since the last emission of previous stream
-                .successionEnds(Duration.ofMillis(500))
-
-                // run the following code block when previous stream emits an event
-                .subscribe(ignore -> codeArea.setStyleSpans(0, computeHighlighting(codeArea.getText())));
-
-        // when no longer need syntax highlighting and wish to clean up memory leaks
-        // run: `cleanupWhenNoLongerNeedIt.unsubscribe();`
-*/
         // recompute syntax highlighting only for visible paragraph changes
         // Note that this shows how it can be done but is not recommended for production where multi-
         // line syntax requirements are needed, like comment blocks without a leading * on each line. 
@@ -133,9 +118,14 @@ public class CodeEditor extends Region {
         codeArea.addEventHandler( KeyEvent.KEY_PRESSED, KE ->
         {
             if ( KE.getCode() == KeyCode.ENTER ) {
+            	// Caret is the line that blinks when you type (position you are typing at)
             	int caretPosition = codeArea.getCaretPosition();
             	int currentParagraph = codeArea.getCurrentParagraph();
-                Matcher m0 = whiteSpace.matcher( codeArea.getParagraph( currentParagraph-1 ).getSegments().get( 0 ) );
+            	// Get the paragraph before the one we are editing and then get the first "segment"
+            	String amountOfWhitespace = codeArea.getParagraph(currentParagraph-1).getSegments().get(0);
+            	// A regex matcher meant to detect whitespace (any amount of spaces)
+                Matcher m0 = whiteSpace.matcher(amountOfWhitespace);
+                // If the regex is matched, that means we can get the whitespace detected and add it to the caretPosition
                 if ( m0.find() ) Platform.runLater( () -> codeArea.insertText( caretPosition, m0.group() ) );
             }
         });
@@ -152,9 +142,13 @@ public class CodeEditor extends Region {
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
         Matcher matcher = PATTERN.matcher(text);
         int lastKwEnd = 0;
+        // Just a collection (array) with a fancy name (to improve performance)
         StyleSpansBuilder<Collection<String>> spansBuilder
                 = new StyleSpansBuilder<>();
+        // while the regex matcher finds a pattern in the text, continue adding the styles to a collection (list)
         while(matcher.find()) {
+        	// If the group is found, aka the patterns above (example: private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";) is found
+        	// Then, set the styleClass to the corresponding class in java-keywords.css and the style will automatically be applied by JavaFX
             String styleClass =
                     matcher.group("KEYWORD") != null ? "keyword" :
                     matcher.group("PAREN") != null ? "paren" :
@@ -169,6 +163,7 @@ public class CodeEditor extends Region {
             lastKwEnd = matcher.end();
         }
         spansBuilder.add(Collections.emptyList(), text.length() - lastKwEnd);
+
         return spansBuilder.create();
     }
 
@@ -197,6 +192,7 @@ public class CodeEditor extends Region {
                     if ( paragraph < area.getParagraphs().size()-1 )
                     {
                         int startPos = area.getAbsolutePosition( paragraph, 0 );
+                        // This is the line that actually applies styles to the text
                         area.setStyleSpans( startPos, computeStyles.apply( text ) );
                     }
                     prevTextLength = text.length();
@@ -252,3 +248,24 @@ public class CodeEditor extends Region {
         codeArea.replaceText(text);
     }
 }
+
+/*
+// recompute the syntax highlighting for all text, 500 ms after user stops editing area
+// Note that this shows how it can be done but is not recommended for production with
+// large files as it does a full scan of ALL the text every time there is a change !
+Subscription cleanupWhenNoLongerNeedIt = codeArea
+
+        // plain changes = ignore style changes that are emitted when syntax highlighting is reapplied
+        // multi plain changes = save computation by not rerunning the code multiple times
+        //   when making multiple changes (e.g. renaming a method at multiple parts in file)
+        .multiPlainChanges()
+
+        // do not emit an event until 500 ms have passed since the last emission of previous stream
+        .successionEnds(Duration.ofMillis(500))
+
+        // run the following code block when previous stream emits an event
+        .subscribe(ignore -> codeArea.setStyleSpans(0, computeHighlighting(codeArea.getText())));
+
+// when no longer need syntax highlighting and wish to clean up memory leaks
+// run: `cleanupWhenNoLongerNeedIt.unsubscribe();`
+*/

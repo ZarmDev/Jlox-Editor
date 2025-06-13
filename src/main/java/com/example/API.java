@@ -54,6 +54,7 @@ public class API {
             messages.put(userMsg);
 
             requestBody.put("messages", messages);
+            
             // requestBody.put("stream", false);
 
             System.out.println(requestBody.toString());

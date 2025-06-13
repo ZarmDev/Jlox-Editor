@@ -42,7 +42,6 @@ public class App extends Application {
     private StackPane root = new StackPane();
     private VBox mainScreen = new VBox(10);
     private String currentFilePath = null;
-    private FileWriter fw;
     // TODO: Why is filename.txt here?
     private File readTextArea = new File("filename.txt");
     private FileChooser fileChooser = new FileChooser();
@@ -68,6 +67,7 @@ public class App extends Application {
     // TODO: Document this
     public void saveToFile() {
         if (currentFilePath != null) {
+        	// Unfortunately, you can not reuse a FileWriter object. You must recreate it everytime
             try (FileWriter fw = new FileWriter(currentFilePath)) {
                 fw.write(textArea.getText());
                 alertUser("File saved!");
@@ -94,6 +94,7 @@ public class App extends Application {
             String filePath = GUIutils.createDialog(content, box -> {
                 String fileName = "";
                 File dir = selectedDir[0];
+                // Loop through the box children and get the text of the TextField (if it exists)
                 for (javafx.scene.Node node : box.getChildren()) {
                     if (node instanceof TextField) {
                         fileName = ((TextField) node).getText();
@@ -111,6 +112,7 @@ public class App extends Application {
                     try (FileWriter fw = new FileWriter(file)) {
                         fw.write(textArea.getText());
                         alertUser("File saved!");
+                        currentFilePath = filePath;
                     } catch (IOException err) {
                         err.printStackTrace();
                     }
@@ -189,11 +191,15 @@ public class App extends Application {
             String runOutput = readStream(run.getInputStream());
             System.out.println(runOutput);
             String runErrors = readStream(run.getErrorStream());
+            // Wait for the process so execution time is correct (and it runs smoothly)
             int runExit = run.waitFor();
 
+            // Get current nano second time
             long endTime = System.nanoTime();
+            // Get different between now and the startTime and divide by this number to get the milliseconds
             long executionTime = (endTime - startTime) / 1000000;
             
+            // runExit returns an exit code from the command and 0 means that it ran without error.
             if (runExit != 0) {
                 updateMarkdown("Runtime error (executed in " + executionTime + " ms):\n\n" + runErrors);
             } else {
@@ -219,9 +225,11 @@ public class App extends Application {
                 try {
                     readTextArea = new File(currentFilePath);
                     Scanner myReader = new Scanner(readTextArea);
+                    // Similar to reading a network request, or the System.in (input), you can read files using scanners
                     StringBuilder fileContent = new StringBuilder();
                     while (myReader.hasNextLine()) {
                         String data = myReader.nextLine();
+                        // Append all the lines with a \n into the editor. There should be many other ways to do this.
                         fileContent.append(data).append("\n");
                     }
                     textArea.replaceText(fileContent.toString());
@@ -265,6 +273,7 @@ public class App extends Application {
         Menu runMenu = new Menu("Run");
         MenuItem runBtn = new MenuItem("Run your code (F5)");
         runBtn.setOnAction(e -> {
+        	// Use a thread to prevent the function from delaying the re-rendering of GUI
             javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
                 @Override
                 protected Void call() throws Exception {
@@ -319,25 +328,28 @@ public class App extends Application {
                 event.consume(); // Prevent default behavior
             }
         });
+        
         // Add event listener for filterField
-//        filterField.textProperty().addListener((obs, oldVal, newVal) -> {
-//            String content = textArea.getText();
-//            // If the textArea is empty then don't select anything (deselect in case any
-//            // text is already selected)
-//            if (newVal.isEmpty()) {
-//                textArea.deselect();
-//                return;
-//            }
-//            // Otherwise, look for the value in the filterField
-//            int index = content.indexOf(newVal);
-//            // If the index exists, then use selectRange to select it
-//            if (index >= 0) {
-//                textArea.selectRange(index, index + newVal.length());
-//            } else {
-//                // Otherwise, ensure nothing is selected
-//                textArea.deselect();
-//            }
-//        });
+        // obs: ObservableValue<? extends String> (observes value like a listener in Javascript), oldVal: previous text, newVal: new text, 
+        filterField.textProperty().addListener((obs, oldVal, newVal) -> {
+            String content = textArea.getText();
+            // If the textArea is empty then don't select anything (deselect in case any
+            // text is already being filtered/selected)
+            if (newVal.isEmpty()) {
+                textArea.codeArea.deselect();
+                return;
+            }
+            // Otherwise, look for the value in the filterField
+            int index = content.indexOf(newVal);
+            // If the index exists, then use selectRange to select it
+            if (index >= 0) {
+            	// Select the range based on the index found
+                textArea.codeArea.selectRange(index, index + newVal.length());
+            } else {
+                // Otherwise, ensure nothing is selected
+                textArea.codeArea.deselect();
+            }
+        });
     }
 
     private void updateMarkdown(String newMarkdown) {
@@ -379,11 +391,15 @@ public class App extends Application {
         textArea.setPrefHeight(500);
         textArea.setMinHeight(400);
         textArea.setPrefWidth(width); // Optionally set width
-
+        
+        // ## ADD CLASSES ##
+//        textArea.getStyleClass().add("textArea");
         
         // ## ADD ALL CHILDREN TO THE SCENE ##
-        mainScreen.getChildren().add(alert);
-        
+        HBox alertBox = new HBox(alert);
+        // 8 pixels of padding on the left
+		alertBox.setStyle("-fx-padding: 0 0 0 8;");
+		mainScreen.getChildren().add(alertBox);
         // ## INITALIZE TOOLBAR ##
         initializeToolbarButtons();
         
@@ -404,6 +420,8 @@ public class App extends Application {
         Scene scene = new Scene(root, width, height);
         // ## ADD CSS ##
         scene.getStylesheets().add(CodeEditor.class.getResource("java-keywords.css").toExternalForm());
+        // TODO: ADD CSS
+        scene.getStylesheets().add(CodeEditor.class.getResource("main.css").toExternalForm());
         primaryStage.setScene(scene);
 
         // ## EVENT HANDLERS ##

@@ -9,5 +9,5 @@
 For example, in Ellipse go to Run -> Run Configurations -> Your app's class name -> Arguments and then add this to VM arguments:
 
 --module-path pathtoyourjavafxsdklibfolder --add-modules=javafx.controls,javafx.fxml
-# Just to remember
-For the statistics part of the rubric, you should have it time the execution of running Jlox on the notepad
+
+# To add...
