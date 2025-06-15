@@ -82,9 +82,13 @@ public class API {
                 // Exception of NoSuchElementException
                 String response = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
                 System.out.println(response);
+                
                 // Much faster than using a JSON object and easier to implement
-                String textResult = (response.substring(response.indexOf("content\":\"") + 10,
-                        response.lastIndexOf("\"role\"") - 2));
+//                String textResult = (response.substring(response.indexOf("content\":\"") + 10,
+//                        response.lastIndexOf("\"role\"") - 2));
+                JSONObject resultObj = new JSONObject(response);
+                JSONObject choices = (JSONObject) resultObj.getJSONArray("choices").get(0);
+                String textResult = "You are using " + model + ". \nChatGPT is given the role: " + role + "\n" + choices.getJSONObject("message").getString("content");
                 // Replace escaped new line characters so it actually renders new lines correctly instead of showing \n on the screen and not a new line
                 conn.disconnect();
                 return (textResult.replace("\\n", "\n").replace("\\\"", "\""));

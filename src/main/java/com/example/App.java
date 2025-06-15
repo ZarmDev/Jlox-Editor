@@ -29,6 +29,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
+import javafx.scene.transform.Scale;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Screen;
@@ -53,6 +54,9 @@ public class App extends Application {
     private MarkdownView aiResults = new MarkdownView();
     private ScrollPane scrollPane = new ScrollPane();
     private CodeEditor textArea = new CodeEditor();
+    private double windowZoom = 1;
+    // Reuse the Scale object rather than creating a new one everytime
+    private Scale textAreaScale = new Scale(1, 1, 0, 0);
 
     public static void main(String[] args) {
         launch(args);
@@ -294,29 +298,36 @@ public class App extends Application {
 
     public void initalizeEventHandlers() {
         primaryStage.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
-            if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.S) {
-                System.out.println("Ctrl+S pressed!");
-                saveToFile();
-                event.consume(); // Prevent default behavior
-            } else if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.F) {
-                System.out.println("Ctrl+F pressed!" + filterField.isManaged());
-                boolean shouldShow = !filterField.isVisible();
-                filterField.setVisible(shouldShow);
-                filterField.setManaged(shouldShow);
-                event.consume(); // Prevent default behavior
-            } else if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.Q) {
-            	// Run askAI in a background thread to avoid freezing the UI (thread code from
-                // online)
-                javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
-                	@Override
-                    protected Void call() throws Exception {
-                        callAI();
-                        return null;
-                    }
-                };
-                new Thread(task).start();
-                event.consume(); // Prevent default behavior
-            } else if (event.getCode() == javafx.scene.input.KeyCode.F5) {
+        	if (event.isControlDown()) {
+	            if (event.getCode() == javafx.scene.input.KeyCode.S) {
+	                System.out.println("Ctrl+S pressed!");
+	                saveToFile();
+	            } else if (event.getCode() == javafx.scene.input.KeyCode.F) {
+	                System.out.println("Ctrl+F pressed!" + filterField.isManaged());
+	                boolean shouldShow = !filterField.isVisible();
+	                filterField.setVisible(shouldShow);
+	                filterField.setManaged(shouldShow);
+	            } else if (event.getCode() == javafx.scene.input.KeyCode.Q) {
+	            	// Run askAI in a background thread to avoid freezing the UI (thread code from
+	                // online)
+	                javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
+	                	@Override
+	                    protected Void call() throws Exception {
+	                        callAI();
+	                        return null;
+	                    }
+	                };
+	                new Thread(task).start();
+	            } else if (event.getCode() == javafx.scene.input.KeyCode.EQUALS) {
+	                windowZoom *= 1.1;
+	                textAreaScale.setX(windowZoom);
+	                textAreaScale.setY(windowZoom);
+	            } else if (event.getCode() == javafx.scene.input.KeyCode.MINUS) {
+	                windowZoom *= 0.9;
+	                textAreaScale.setX(windowZoom);
+	                textAreaScale.setY(windowZoom);
+	            }
+        	} else if (event.getCode() == javafx.scene.input.KeyCode.F5) {
                 javafx.concurrent.Task<Void> task = new javafx.concurrent.Task<Void>() {
                 	@Override
                     protected Void call() throws Exception {
@@ -325,8 +336,8 @@ public class App extends Application {
                     }
                 };
                 new Thread(task).start();
-                event.consume(); // Prevent default behavior
             }
+//        	event.consume(); // Prevent default behavior
         });
         
         // Add event listener for filterField
@@ -391,6 +402,7 @@ public class App extends Application {
         textArea.setPrefHeight(500);
         textArea.setMinHeight(400);
         textArea.setPrefWidth(width); // Optionally set width
+        textArea.getTransforms().add(textAreaScale);
         
         // ## ADD CLASSES ##
 //        textArea.getStyleClass().add("textArea");
@@ -417,6 +429,7 @@ public class App extends Application {
 
         // Add the mainScreen and set a new scene
         root.getChildren().add(mainScreen);
+        
         Scene scene = new Scene(root, width, height);
         // ## ADD CSS ##
         scene.getStylesheets().add(CodeEditor.class.getResource("java-keywords.css").toExternalForm());
