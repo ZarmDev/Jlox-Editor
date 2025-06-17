@@ -43,11 +43,9 @@ public class App extends Application {
     private StackPane root = new StackPane();
     private VBox mainScreen = new VBox(10);
     private String currentFilePath = null;
-    // TODO: Why is filename.txt here?
-    private File readTextArea = new File("filename.txt");
+    private File readTextArea = new File("");
     private FileChooser fileChooser = new FileChooser();
     private TextField filterField = new TextField();
-    // Reuse this for different prompts
     private TextInputDialog userPrompt = new TextInputDialog();
     private Stage primaryStage;
     private Text alert = new Text();
@@ -62,13 +60,14 @@ public class App extends Application {
         launch(args);
     }
 
+    // Sets the text of the Text node and then uses GUIUtils to fade in/out the animation.
     public void alertUser(String text) {
         alert.setText(text);
         
         GUIutils.fadeInOutAnimation(alert, 1);
     }
 
-    // TODO: Document this
+    // Saves the current document, but if no file path is set, it creates a dialog using GUIutils that allows the user to choose a directory and file name.
     public void saveToFile() {
         if (currentFilePath != null) {
         	// Unfortunately, you can not reuse a FileWriter object. You must recreate it everytime
@@ -129,6 +128,7 @@ public class App extends Application {
         }
     }
 
+    // Uses the API class to get ChatGPT results from ai.hackclub.com. It just handles updating the markdown and the model to use.
     public Void callAI() throws Exception {
         	// "https://openrouter.ai/api/v1/chat/completions"
         	String url = "https://ai.hackclub.com/chat/completions";
@@ -144,21 +144,9 @@ public class App extends Application {
             	updateMarkdown(callResult);
             }
             return null;
-//          @Override
-//          protected Void call() throws Exception {
-//          	String callResult = API.askAI("https://openrouter.ai/api/v1/chat/completions", "meta-llama/llama-3.3-8b-instruct:free",
-//                      "Find the error in the user's code", textArea.getText());
-//              if (callResult == null) {
-//              	alertUser("No API Key provided!");
-//              } else if (callResult.equals("")) {
-//              	alertUser("Failed to connect to the chatGPT API");
-//              } else {
-//              	updateMarkdown(callResult);
-//              }
-//              return null;
-//          }
     }
     
+    // A helper method to read an input stream by appending each line to a StringBuilder.
     private String readStream(java.io.InputStream stream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
         StringBuilder output = new StringBuilder();
@@ -169,6 +157,7 @@ public class App extends Application {
         return output.toString();
     }
     
+    // Saves the code and then uses javac and java commands to compile and then run the document. It also times the execution by subtracting the time from the start and end.
     public void runCode() {
     	if (currentFilePath == null) {
     		alertUser("Please save the file first!");
@@ -214,11 +203,12 @@ public class App extends Application {
     	}
     }
     
+    // Creates the "MenuBar" nodes which are just the buttons like File, Edit, Run.
     public void initializeToolbarButtons() {
         // Create MenuBar
         MenuBar menuBar = new MenuBar();
 
-        // --- File Menu ---
+        // Create File Menu
         Menu fileMenu = new Menu("File");
 
         MenuItem openItem = new MenuItem("Open new file");
@@ -256,7 +246,7 @@ public class App extends Application {
 
         fileMenu.getItems().addAll(openItem, saveItem, findItem);
 
-        // ## AI Menu ##
+        // Create AI Menu
         Menu aiMenu = new Menu("AI");
         MenuItem aiAskItem = new MenuItem("Ask AI about your code (CTRL+Q)");
         aiAskItem.setOnAction(e -> {
@@ -273,7 +263,7 @@ public class App extends Application {
         });
         aiMenu.getItems().add(aiAskItem);
         
-        // ## AI Menu ##
+        // Create Run Menu
         Menu runMenu = new Menu("Run");
         MenuItem runBtn = new MenuItem("Run your code (F5)");
         runBtn.setOnAction(e -> {
@@ -295,7 +285,8 @@ public class App extends Application {
         // Add menuBar to your mainScreen at the top
         mainScreen.getChildren().add(0, menuBar);
     }
-
+    
+    // Checks if certain shortcuts are pressed like CRTL+S, CRTL+F, etc to use instead of MenuItems. Contains code for zooming in/out.
     public void initalizeEventHandlers() {
         primaryStage.getScene().addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
         	if (event.isControlDown()) {
@@ -337,7 +328,6 @@ public class App extends Application {
                 };
                 new Thread(task).start();
             }
-//        	event.consume(); // Prevent default behavior
         });
         
         // Add event listener for filterField
@@ -363,6 +353,7 @@ public class App extends Application {
         });
     }
 
+    // Uses the MarkdownView node from the custom markdown library to render AI responses and code output
     private void updateMarkdown(String newMarkdown) {
     	// https://stackoverflow.com/questions/21083945/how-to-avoid-not-on-fx-application-thread-currentthread-javafx-application-th
     	Platform.runLater(new Runnable() {
@@ -378,6 +369,7 @@ public class App extends Application {
     	});
     }
     
+    // Where initialization code happens to make the "start" method more clean
     public void initialization() {
         // ## SET DEFAULT VALUES ##
         primaryStage.setTitle("Jlox Code Editor");
@@ -420,6 +412,7 @@ public class App extends Application {
         mainScreen.getChildren().add(aiResults);
     }
     
+    // Where all the methods and scene/root is created. Called by JavaFX
     @Override
     public void start(Stage primaryStage) {
     	// Ensure all functions can use this

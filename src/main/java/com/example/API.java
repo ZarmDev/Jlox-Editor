@@ -7,41 +7,39 @@ import java.util.Scanner;
 import org.json.JSONObject;
 
 public class API {
-	// For now, we can leave it in the client. TODO
-//	private final static String apiKey = "";
-	
+	// Based on the deepseek API guide
 	public static String askAI(String url, String model, String role, String content) {
 //        if (apiKey == null) {
 //        	return null;
 //        }
         try {
-            /*
-             * Based on:
-             * 
-             * curl https://api.deepseek.com/chat/completions \
-             * -H "Content-Type: application/json" \
-             * -H "Authorization: Bearer <DeepSeek API Key>" \
-             * -d '{
-             * "model": "deepseek-chat",
-             * "messages": [
-             * {"role": "system", "content": "You are a helpful assistant."},
-             * {"role": "user", "content": "Hello!"}
-             * ],
-             * "stream": false
-             * }'
-             */
             String type = "application/json";
             URL u = new URL(url);
             HttpURLConnection conn = (HttpURLConnection) u.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", type);
+            // Typically used with hugging face or deepseek API, unncessary for ai.hackclub.com
 //            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
-
-            // Build the JSON body using JSONObject and JSONArray
+            
+            /*Example object result:
+             * {
+			  "messages": [
+			    {
+			      "role": "system",
+			      "content": "You are a helpful assistant."
+			    },
+			    {
+			      "role": "user",
+			      "content": "Please debug my code, there is an error: \npublic class Main {\n\tpublic static void main(String[] args) {\n\n\t}\n}\n"
+			    }
+			  ],
+			  "model": "llama-3.3-70b-versatile"
+			}*/
+            // Create the JSON body using JSONObject and JSONArray
             JSONObject requestBody = new JSONObject();
             requestBody.put("model", model);
-
+            
             org.json.JSONArray messages = new org.json.JSONArray();
             JSONObject sysMsg = new JSONObject();
             sysMsg.put("role", "system");
@@ -55,8 +53,6 @@ public class API {
 
             requestBody.put("messages", messages);
             
-            // requestBody.put("stream", false);
-
             System.out.println(requestBody.toString());
             // Write the JSON body to the output stream (taken from online)
             try (java.io.OutputStream os = conn.getOutputStream()) {
@@ -83,9 +79,7 @@ public class API {
                 String response = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
                 System.out.println(response);
                 
-                // Much faster than using a JSON object and easier to implement
-//                String textResult = (response.substring(response.indexOf("content\":\"") + 10,
-//                        response.lastIndexOf("\"role\"") - 2));
+                // Parse JSON by going directly to the "choices" key
                 JSONObject resultObj = new JSONObject(response);
                 JSONObject choices = (JSONObject) resultObj.getJSONArray("choices").get(0);
                 String textResult = "You are using " + model + ". \nChatGPT is given the role: " + role + "\n" + choices.getJSONObject("message").getString("content");

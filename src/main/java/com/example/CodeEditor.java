@@ -50,6 +50,7 @@ public class CodeEditor extends Region {
             "transient", "try", "void", "volatile", "while"
     };
 
+    // patterns/regexes used to find certain things like where brackets are, parentheses, etc
     private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";
     private static final String PAREN_PATTERN = "\\(|\\)";
     private static final String BRACE_PATTERN = "\\{|\\}";
@@ -92,6 +93,7 @@ public class CodeEditor extends Region {
         "}"
     });
     
+    // Constructor - Adds graphic factories (classes that add styles to the editor) and adds some functionality like adding appropriate whitespace when you press enter
     public CodeEditor() {
     	codeArea = new CodeArea();
     	// Use a scroll pane to make the codeArea scrollable and have styles like padding
@@ -134,11 +136,13 @@ public class CodeEditor extends Region {
         codeArea.replaceText(0, 0, sampleCode);
     }
     
+    // layoutChildren - Resizes code editor
     @Override
     protected void layoutChildren() {
         vsPane.resizeRelocate(0, 0, getWidth(), getHeight());
     }
 
+    // computeHighlighting - Finds keywords in a given text and returns the styles
     private StyleSpans<Collection<String>> computeHighlighting(String text) {
         Matcher matcher = PATTERN.matcher(text);
         int lastKwEnd = 0;
@@ -167,6 +171,7 @@ public class CodeEditor extends Region {
         return spansBuilder.create();
     }
 
+    // This is added in the constructor as a modification observer - basically, it runs the accept function when lm is changed (new lines/text) and then uses the compute hightlighting function and applys the styles 
     private class VisibleParagraphStyler<PS, SEG, S> implements Consumer<ListModification<? extends Paragraph<PS, SEG, S>>>
     {
         private final GenericStyledArea<PS, SEG, S> area;
@@ -192,7 +197,7 @@ public class CodeEditor extends Region {
                     if ( paragraph < area.getParagraphs().size()-1 )
                     {
                         int startPos = area.getAbsolutePosition( paragraph, 0 );
-                        // This is the line that actually applies styles to the text
+                        // This is the line that actually applies styles to the text (using compute highlighting)
                         area.setStyleSpans( startPos, computeStyles.apply( text ) );
                     }
                     prevTextLength = text.length();
@@ -201,7 +206,8 @@ public class CodeEditor extends Region {
             });
         }
     }
-
+    
+    // When you right click, this menu appears
     private class DefaultContextMenu extends ContextMenu
     {
         private MenuItem fold, unfold;
@@ -240,6 +246,8 @@ public class CodeEditor extends Region {
         }
     }
     
+    
+    /* GETTERS AND SETTERS */
     public String getText() {
         return codeArea.getText();
     }
